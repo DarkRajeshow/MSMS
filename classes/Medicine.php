@@ -7,24 +7,25 @@ class Medicine
     private $conn;
     private $table_name = 'medicines';
 
-    // Object properties
     public $id;
     public $name;
     public $use;
     public $selling_price;
     public $available_quantity;
     public $expiry_date;
+    public $company_id;
+    public $disease_id;
 
     public function __construct($db)
     {
         $this->conn = $db;
     }
 
-    // Create Medicine
     public function create()
     {
         $query = "INSERT INTO " . $this->table_name . " 
-                  SET name=?, `use`=?, selling_price=?, available_quantity=?, expiry_date=?";
+                  SET name=?, `use`=?, selling_price=?, available_quantity=?, 
+                      expiry_date=?, company_id=?, disease_id=?";
 
         $stmt = $this->conn->prepare($query);
 
@@ -33,35 +34,91 @@ class Medicine
         $this->use = htmlspecialchars(strip_tags($this->use));
         $this->selling_price = htmlspecialchars(strip_tags($this->selling_price));
         $this->available_quantity = htmlspecialchars(strip_tags($this->available_quantity));
+        $this->company_id = htmlspecialchars(strip_tags($this->company_id));
+        $this->disease_id = htmlspecialchars(strip_tags($this->disease_id));
 
-        // Bind values
         $stmt->bind_param(
-            "ssdis",
+            "ssdiiii",
             $this->name,
             $this->use,
             $this->selling_price,
             $this->available_quantity,
-            $this->expiry_date
+            $this->expiry_date,
+            $this->company_id,
+            $this->disease_id
         );
 
-        return $stmt->execute() ? true : false;
+        return $stmt->execute();
     }
 
-    // Read Medicines with optional search and sorting
     public function read($search = '', $sort_by = 'name', $sort_order = 'ASC')
     {
-        $query = "SELECT * FROM " . $this->table_name;
+        $query = "SELECT m.*, c.name as company_name, d.name as disease_name 
+                  FROM " . $this->table_name . " m
+                  LEFT JOIN companies c ON m.company_id = c.id
+                  LEFT JOIN diseases d ON m.disease_id = d.id";
 
         if (!empty($search)) {
             $search = $this->conn->real_escape_string($search);
-            $query .= " WHERE name LIKE '%{$search}%' OR `use` LIKE '%{$search}%'";
+            $query .= " WHERE m.name LIKE '%{$search}%' 
+                       OR m.`use` LIKE '%{$search}%'
+                       OR c.name LIKE '%{$search}%'
+                       OR d.name LIKE '%{$search}%'";
         }
 
-        $query .= " ORDER BY {$sort_by} {$sort_order}";
+        $query .= " ORDER BY m.{$sort_by} {$sort_order}";
 
-        $result = $this->conn->query($query);
-        return $result;
+        return $this->conn->query($query);
     }
+
+    public function update()
+    {
+        $query = "UPDATE " . $this->table_name . " 
+                  SET name=?, `use`=?, selling_price=?, available_quantity=?, 
+                      expiry_date=?, company_id=?, disease_id=?
+                  WHERE id=?";
+
+        $stmt = $this->conn->prepare($query);
+
+        // Sanitize
+        $this->name = htmlspecialchars(strip_tags($this->name));
+        $this->use = htmlspecialchars(strip_tags($this->use));
+        $this->selling_price = htmlspecialchars(strip_tags($this->selling_price));
+        $this->available_quantity = htmlspecialchars(strip_tags($this->available_quantity));
+        $this->company_id = htmlspecialchars(strip_tags($this->company_id));
+        $this->disease_id = htmlspecialchars(strip_tags($this->disease_id));
+        $this->id = htmlspecialchars(strip_tags($this->id));
+
+        $stmt->bind_param(
+            "ssdiiiis",
+            $this->name,
+            $this->use,
+            $this->selling_price,
+            $this->available_quantity,
+            $this->expiry_date,
+            $this->company_id,
+            $this->disease_id,
+            $this->id
+        );
+
+        return $stmt->execute();
+    }
+
+    // Read Medicines with optional search and sorting
+    // public function read($search = '', $sort_by = 'name', $sort_order = 'ASC')
+    // {
+    //     $query = "SELECT * FROM " . $this->table_name;
+
+    //     if (!empty($search)) {
+    //         $search = $this->conn->real_escape_string($search);
+    //         $query .= " WHERE name LIKE '%{$search}%' OR `use` LIKE '%{$search}%'";
+    //     }
+
+    //     $query .= " ORDER BY {$sort_by} {$sort_order}";
+
+    //     $result = $this->conn->query($query);
+    //     return $result;
+    // }
 
     // Get single medicine details
     public function readOne()
@@ -74,34 +131,34 @@ class Medicine
     }
 
     // Update Medicine
-    public function update()
-    {
-        $query = "UPDATE " . $this->table_name . " 
-                  SET name=?, `use`=?, selling_price=?, available_quantity=?, expiry_date=? 
-                  WHERE id=?";
+    // public function update()
+    // {
+    //     $query = "UPDATE " . $this->table_name . " 
+    //               SET name=?, `use`=?, selling_price=?, available_quantity=?, expiry_date=? 
+    //               WHERE id=?";
 
-        $stmt = $this->conn->prepare($query);
+    //     $stmt = $this->conn->prepare($query);
 
-        // Sanitize
-        $this->name = htmlspecialchars(strip_tags($this->name));
-        $this->use = htmlspecialchars(strip_tags($this->use));
-        $this->selling_price = htmlspecialchars(strip_tags($this->selling_price));
-        $this->available_quantity = htmlspecialchars(strip_tags($this->available_quantity));
-        $this->id = htmlspecialchars(strip_tags($this->id));
+    //     // Sanitize
+    //     $this->name = htmlspecialchars(strip_tags($this->name));
+    //     $this->use = htmlspecialchars(strip_tags($this->use));
+    //     $this->selling_price = htmlspecialchars(strip_tags($this->selling_price));
+    //     $this->available_quantity = htmlspecialchars(strip_tags($this->available_quantity));
+    //     $this->id = htmlspecialchars(strip_tags($this->id));
 
-        // Bind values
-        $stmt->bind_param(
-            "ssdisi",
-            $this->name,
-            $this->use,
-            $this->selling_price,
-            $this->available_quantity,
-            $this->expiry_date,
-            $this->id
-        );
+    //     // Bind values
+    //     $stmt->bind_param(
+    //         "ssdisi",
+    //         $this->name,
+    //         $this->use,
+    //         $this->selling_price,
+    //         $this->available_quantity,
+    //         $this->expiry_date,
+    //         $this->id
+    //     );
 
-        return $stmt->execute() ? true : false;
-    }
+    //     return $stmt->execute() ? true : false;
+    // }
 
     public function delete()
     {

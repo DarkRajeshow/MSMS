@@ -9,7 +9,11 @@ CREATE TABLE IF NOT EXISTS medicines (
     `use` VARCHAR(255),
     selling_price DECIMAL(10,2) NOT NULL,
     available_quantity INT NOT NULL DEFAULT 0,
-    expiry_date DATE DEFAULT NULL  -- Added expiry_date column here
+    expiry_date DATE DEFAULT NULL,
+    company_id INT,
+    disease_id INT,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT,
+    FOREIGN KEY (disease_id) REFERENCES diseases(id) ON DELETE RESTRICT
 );
 
 -- Create purchases table
@@ -19,7 +23,7 @@ CREATE TABLE IF NOT EXISTS purchases (
     quantity INT NOT NULL,
     purchase_price DECIMAL(10,2) NOT NULL,
     purchase_date DATE NOT NULL,
-    expiry_date DATE NOT NULL,  -- Kept expiry_date in purchases table
+    expiry_date DATE NOT NULL,
     total_cost DECIMAL(10,2) NOT NULL,
     FOREIGN KEY (medicine_id) REFERENCES medicines(id)
 );
@@ -38,7 +42,8 @@ CREATE TABLE IF NOT EXISTS sales (
 CREATE TABLE IF NOT EXISTS bills (
     id INT AUTO_INCREMENT PRIMARY KEY,
     total_amount DECIMAL(10,2) NOT NULL,
-    bill_date DATE NOT NULL
+    bill_date DATE NOT NULL,
+    customer_name VARCHAR(255) NOT NULL
 );
 
 -- Create bill_sales junction table
@@ -62,22 +67,8 @@ CREATE TABLE IF NOT EXISTS notifications (
     UNIQUE (medicine_id, notified_until)
 );
 
-
-
-ALTER TABLE sales
-    ADD CONSTRAINT fk_medicine_id
-    FOREIGN KEY (medicine_id)
-    REFERENCES medicines(id)
-    ON DELETE CASCADE;
-
-
-ALTER TABLE bills
-ADD COLUMN customer_name VARCHAR(255) NOT NULL;
-
-
-
 -- Create admin_users table
-CREATE TABLE admin_users (
+CREATE TABLE IF NOT EXISTS admin_users (
     id INT PRIMARY KEY AUTO_INCREMENT,
     username VARCHAR(50) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
@@ -87,3 +78,25 @@ CREATE TABLE admin_users (
 -- Insert default admin user (password: admin123)
 INSERT INTO admin_users (username, password) 
 VALUES ('Admin', 'Admin123');
+
+-- Create Company table
+CREATE TABLE IF NOT EXISTS companies (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Create Disease table
+CREATE TABLE IF NOT EXISTS diseases (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Add indexes for better query performance
+CREATE INDEX idx_medicine_company ON medicines(company_id);
+CREATE INDEX idx_medicine_disease ON medicines(disease_id);

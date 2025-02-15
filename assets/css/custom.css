@@ -10,6 +10,7 @@ body {
     font-weight: 500;
 }
 
-input{
+.style-input, input{
     padding: 10px;
+    background-color: gray !important;
 }
