@@ -249,8 +249,8 @@ $stats = $medicine->getStatistics();
 
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                                    <button onclick="editMedicine(<?php echo htmlspecialchars(json_encode($row)); ?>)"
-                                        class="text-blue-600 hover:text-blue-900">Edit</button>
+                                    <!-- <button onclick="editMedicine(<?php echo htmlspecialchars(json_encode($row)); ?>)"
+                                        class="text-blue-600 hover:text-blue-900">Edit</button> -->
                                     <button onclick="deleteMedicine(<?php echo $row['id']; ?>, '<?php echo htmlspecialchars($row['name']); ?>')"
                                         class="text-red-600 hover:text-red-900">Delete</button>
                                 </td>
@@ -326,14 +326,14 @@ $stats = $medicine->getStatistics();
             const name = document.getElementById('name').value.trim();
             const company = document.getElementById('company_id').value;
             const disease = document.getElementById('disease_id').value;
-            const price = document.getElementById('selling_price').value;
+            const price = parseFloat(document.getElementById('selling_price').value);
 
             let errors = [];
 
             if (!name) errors.push('Medicine name is required');
             if (!company) errors.push('Please select a company');
             if (!disease) errors.push('Please select a disease');
-            if (!price || price <= 0) errors.push('Please enter a valid price');
+            if (!price || price <= 0) errors.push('Selling price must be greater than 0');
 
             if (errors.length > 0) {
                 e.preventDefault();

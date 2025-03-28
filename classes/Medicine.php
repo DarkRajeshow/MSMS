@@ -90,7 +90,8 @@ class Medicine
         $this->id = htmlspecialchars(strip_tags($this->id));
 
         $stmt->bind_param(
-            "ssdiiiis",
+            // "ssdiiiis",
+            "ssdisiii",
             $this->name,
             $this->use,
             $this->selling_price,

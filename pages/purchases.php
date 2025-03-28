@@ -45,8 +45,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 // Pagination
 $page = $_GET['page'] ?? 1;
 $limit = 10;
+$date_from = isset($_GET['date_from']) ? $_GET['date_from'] : '';
+$date_to = isset($_GET['date_to']) ? $_GET['date_to'] : '';
 $medicines = $purchase->getMedicines();
-$purchases = $purchase->read($page, $limit);
+$purchases = $purchase->read($page, $limit, $date_from, $date_to);
 $stats = $purchase->getPurchaseStats();
 $recent_purchases = $purchase->getRecentPurchases();
 ?>
@@ -166,6 +168,26 @@ $recent_purchases = $purchase->getRecentPurchases();
         <div class="bg-white rounded-lg shadow-lg">
             <div class="p-6">
                 <h2 class="text-2xl font-bold mb-6">Purchase History</h2>
+                <div class="mb-4 flex gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">From Date</label>
+                        <input type="date" id="date_from" name="date_from" 
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            value="<?php echo $_GET['date_from'] ?? ''; ?>">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">To Date</label>
+                        <input type="date" id="date_to" name="date_to"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            value="<?php echo $_GET['date_to'] ?? ''; ?>">
+                    </div>
+                    <div class="flex items-end">
+                        <button type="button" onclick="filterPurchases()" 
+                            class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                            Filter
+                        </button>
+                    </div>
+                </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
@@ -290,6 +312,46 @@ $recent_purchases = $purchase->getRecentPurchases();
             if (quantity <= 0 || price <= 0) {
                 e.preventDefault();
                 alert('Please enter valid quantity and price values.');
+            }
+        });
+
+        function filterPurchases() {
+            const dateFrom = document.getElementById('date_from').value;
+            const dateTo = document.getElementById('date_to').value;
+            const currentPage = new URLSearchParams(window.location.search).get('page') || 1;
+            
+            if (dateFrom && dateTo && dateFrom > dateTo) {
+                alert('From date cannot be greater than To date');
+                return;
+            }
+            
+            let url = new URL(window.location.href);
+            let params = new URLSearchParams(url.search);
+            
+            // Update or add date parameters
+            if (dateFrom) params.set('date_from', dateFrom);
+            if (dateTo) params.set('date_to', dateTo);
+            params.set('page', '1'); // Reset to first page when filtering
+            
+            // Redirect with new parameters
+            window.location.href = `${url.pathname}?${params.toString()}`;
+        }
+
+        // Enhanced form validation
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const quantity = parseInt(document.querySelector('input[name="quantity"]').value);
+            const price = parseFloat(document.querySelector('input[name="purchase_price"]').value);
+            const expiryDate = document.querySelector('input[name="expiry_date"]').value;
+            
+            let errors = [];
+            
+            if (!quantity || quantity <= 0) errors.push('Quantity must be greater than 0');
+            if (!price || price <= 0) errors.push('Purchase price must be greater than 0');
+            if (!expiryDate) errors.push('Expiry date is required');
+            
+            if (errors.length > 0) {
+                e.preventDefault();
+                alert(errors.join('\n'));
             }
         });
     </script>

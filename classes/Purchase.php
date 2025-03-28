@@ -89,19 +89,47 @@ class Purchase
 
 
 
-    public function read($page = 1, $limit = 10)
-    {
+    public function read($page = 1, $limit = 10, $date_from = '', $date_to = '') {
         $offset = ($page - 1) * $limit;
-
-        $query = "SELECT p.*, m.name as medicine_name, m.expiry_date,
-                  (SELECT COUNT(*) FROM " . $this->table_name . ") as total_count 
-                  FROM " . $this->table_name . " p
-                  JOIN medicines m ON p.medicine_id = m.id
-                  ORDER BY p.purchase_date DESC
-                  LIMIT ?, ?";
-
-        $stmt = $this->conn->prepare($query);
-        $stmt->bind_param("ii", $offset, $limit);
+        
+        $sql = "SELECT p.*, m.name as medicine_name 
+                FROM purchases p 
+                JOIN medicines m ON p.medicine_id = m.id 
+                WHERE 1=1";
+        
+        // Add date filtering conditions
+        if (!empty($date_from)) {
+            $sql .= " AND p.purchase_date >= ?";
+        }
+        if (!empty($date_to)) {
+            $sql .= " AND p.purchase_date <= ?";
+        }
+        
+        $sql .= " ORDER BY p.purchase_date DESC LIMIT ? OFFSET ?";
+        
+        $stmt = $this->conn->prepare($sql);
+        
+        // Bind parameters based on date filters
+        $types = "";
+        $params = array();
+        
+        if (!empty($date_from)) {
+            $types .= "s";
+            $params[] = $date_from;
+        }
+        if (!empty($date_to)) {
+            $types .= "s";
+            $params[] = $date_to;
+        }
+        
+        $types .= "ii";
+        $params[] = $limit;
+        $params[] = $offset;
+        
+        if (!empty($types)) {
+            $stmt->bind_param($types, ...$params);
+        }
+        
         $stmt->execute();
         return $stmt->get_result();
     }

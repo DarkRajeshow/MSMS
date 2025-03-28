@@ -24,10 +24,14 @@ $notifier = new ExpiryNotification($db);
 // Handle marking notifications as read
 if (isset($_POST['mark_read']) && isset($_POST['notification_id'])) {
     $notifier->markAsRead($_POST['notification_id']);
+    header('Location: notifications.php');
+    exit();
 }
 
 // Get unread notifications
 $notifications = $notifier->getUnreadNotifications();
+
+include '../includes/navigation.php';
 ?>
 
 <!DOCTYPE html>
@@ -40,8 +44,8 @@ $notifications = $notifier->getUnreadNotifications();
     <link href="/msms/assets/css/custom.css" rel="stylesheet">
 </head>
 
-<body class="bg-gray-100 p-6">
-    <div class="container mx-auto">
+<body class="bg-gray-100">
+    <div class="container mx-auto pt-20 px-10 ">
         <h1 class="text-3xl font-bold mb-6">Expiry Notifications</h1>
 
         <!-- Notifications List -->
@@ -53,12 +57,17 @@ $notifications = $notifier->getUnreadNotifications();
             <?php else: ?>
                 <div class="divide-y">
                     <?php foreach ($notifications as $notification): ?>
-                        <div class="p-4 flex items-center justify-between bg-yellow-50">
+                        <?php 
+                        $bgColor = $notification['notification_type'] === 'expired' ? 'bg-red-50' : 'bg-yellow-50';
+                        $textColor = $notification['notification_type'] === 'expired' ? 'text-red-800' : 'text-yellow-800';
+                        $buttonColor = $notification['notification_type'] === 'expired' ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600';
+                        ?>
+                        <div class="p-4 flex items-center justify-between <?php echo $bgColor; ?>">
                             <div>
-                                <p class="text-lg font-medium text-gray-900">
+                                <p class="text-lg font-medium <?php echo $textColor; ?>">
                                     <?php echo htmlspecialchars($notification['medicine_name']); ?>
                                 </p>
-                                <p class="text-gray-600">
+                                <p class="<?php echo $textColor; ?>">
                                     <?php echo htmlspecialchars($notification['message']); ?>
                                 </p>
                                 <p class="text-sm text-gray-500">
@@ -69,7 +78,7 @@ $notifications = $notifier->getUnreadNotifications();
                                 <input type="hidden" name="notification_id"
                                     value="<?php echo $notification['id']; ?>">
                                 <button type="submit" name="mark_read"
-                                    class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                                    class="px-4 py-2 text-white rounded <?php echo $buttonColor; ?>">
                                     Mark as Read
                                 </button>
                             </form>

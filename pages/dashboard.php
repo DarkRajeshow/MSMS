@@ -6,6 +6,7 @@ session_start();
 
 // Include the auth functions file
 require_once '../auth/auth_functions.php'; 
+require_once '../classes/ExpiryNotification.php'; 
 
 // Protect the page
 requireLogin();  // This function will redirect to login if not logged in
@@ -63,6 +64,34 @@ class Dashboard
         $query = "SELECT SUM(s.quantity_sold * s.sale_price) as total FROM sales s";
         $result = $this->conn->query($query);
         return $result->fetch_assoc()['total'];
+    }
+
+    // Get Actual Profit (considering all purchases and sales)
+    public function getActualProfit()
+    {
+        // First get the total purchase cost of sold items
+        $query = "SELECT 
+                    SUM(
+                        CASE 
+                            WHEN p.purchase_price IS NOT NULL THEN s.quantity_sold * p.purchase_price
+                            ELSE 0
+                        END
+                    ) as total_cost_price
+                  FROM sales s
+                  LEFT JOIN purchases p ON s.medicine_id = p.medicine_id";
+        
+        $result = $this->conn->query($query);
+        $cost_data = $result->fetch_assoc();
+        $total_cost_price = $cost_data['total_cost_price'] ?? 0;
+
+        // Get total sales revenue
+        $query = "SELECT COALESCE(SUM(quantity_sold * sale_price), 0) as total_revenue FROM sales";
+        $result = $this->conn->query($query);
+        $sales_data = $result->fetch_assoc();
+        $total_revenue = $sales_data['total_revenue'];
+
+        // Calculate actual profit
+        return $total_revenue - $total_cost_price;
     }
 
     // Get Category-wise Sales
@@ -142,6 +171,25 @@ class Dashboard
         $result = $this->conn->query($query);
         return $result;
     }
+
+    // Get Disease-wise Sales
+    public function getDiseaseSales()
+    {
+        $query = "SELECT 
+                    d.name as disease_name,
+                    COUNT(DISTINCT s.id) as total_sales,
+                    SUM(s.quantity_sold) as total_quantity,
+                    SUM(s.quantity_sold * s.sale_price) as total_revenue,
+                    COUNT(DISTINCT m.id) as unique_medicines
+                  FROM sales s
+                  JOIN medicines m ON s.medicine_id = m.id
+                  JOIN diseases d ON m.disease_id = d.id
+                  WHERE s.sale_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                  GROUP BY d.id, d.name
+                  ORDER BY total_revenue DESC";
+        $result = $this->conn->query($query);
+        return $result;
+    }
 }
 
 // Initialize Dashboard
@@ -149,19 +197,27 @@ $database = new Database();
 $db = $database->getConnection();
 $dashboard = new Dashboard($db);
 
+// Initialize notification system and check for expired medicines
+$notifier = new ExpiryNotification($db);
+$notifier->checkMedicines();
+
 // Fetch all required data
 $total_medicines = $dashboard->getTotalMedicines();
 $monthly_sales = $dashboard->getMonthlySales();
 $total_purchase = $dashboard->getTotalPurchaseValue();
 $total_sales = $dashboard->getTotalSalesValue();
-$category_sales = $dashboard->getCategorySales();
+$actual_profit = $dashboard->getActualProfit();
+$disease_sales = $dashboard->getDiseaseSales();
 $low_stock_medicines = $dashboard->getLowStockMedicines();
 $top_selling_medicines = $dashboard->getTopSellingMedicines();
 $expiring_medicines = $dashboard->getExpiringMedicines();
 $recent_notifications = $dashboard->getRecentNotifications();
 
+// Remove incorrect stock calculation
+// $current_stock = $total_purchase - ($total_sales - $actual_profit);
+
 // Calculate profit
-$total_profit = $total_sales - $total_purchase;
+// $total_profit = $total_sales - $total_purchase;
 ?>
 
 <!DOCTYPE html>
@@ -194,7 +250,23 @@ $total_profit = $total_sales - $total_purchase;
         </div>
 
         <!-- Key Metrics Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 mb-8">
+
+            <!-- Total Profit -->
+            <div class="bg-white rounded-xl shadow-md p-6 border border-gray-200 col-span-full flex items-center justify-center">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Total Profit (From Sold Items)</p>
+                        <p class="text-2xl font-semibold <?php echo $actual_profit > 0 ? 'text-green-600' : 'text-red-600' ?>">₹<?php echo number_format($actual_profit, 2); ?></p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Total Medicines -->
             <div class="bg-white rounded-xl shadow-md p-6 border border-gray-200">
                 <div class="flex items-center">
@@ -224,21 +296,33 @@ $total_profit = $total_sales - $total_purchase;
                     </div>
                 </div>
             </div>
-
-            <!-- Total Profit -->
-            <div class="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+            <!-- <div class="bg-white rounded-xl shadow-md p-6 border border-gray-200">
                 <div class="flex items-center">
-                    <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                    <div class="p-3 rounded-full bg-green-100 text-green-600">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     </div>
                     <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-600">Total Profit</p>
-                        <p class="text-2xl font-semibold text-gray-900">₹<?php echo number_format($total_profit, 2); ?></p>
+                        <p class="text-sm font-medium text-gray-600">Current Stock</p>
+                        <p class="text-2xl font-semibold text-gray-900">₹<?php echo number_format($current_stock, 2); ?></p>
+                    </div>
+                </div>
+            </div> -->
+            <div class="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-green-100 text-green-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Total Investment</p>
+                        <p class="text-2xl font-semibold text-gray-900">₹<?php echo number_format($total_purchase, 2); ?></p>
                     </div>
                 </div>
             </div>
+
 
             <!-- Low Stock Alert -->
             <div class="bg-white rounded-xl shadow-md p-6 border border-gray-200">
@@ -268,14 +352,14 @@ $total_profit = $total_sales - $total_purchase;
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             <!-- Monthly Sales Chart -->
             <div class="bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-lg font-semibold mb-4">Monthly Sales Trend</h2>
+                <h2 class="text-lg font-semibold mb-4">Monthly Sales & Revenue Trend</h2>
                 <canvas id="monthlySalesChart"></canvas>
             </div>
 
-            <!-- Category Sales Chart -->
+            <!-- Disease Sales Chart -->
             <div class="bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-lg font-semibold mb-4">Category-wise Sales</h2>
-                <canvas id="categorySalesChart"></canvas>
+                <h2 class="text-lg font-semibold mb-4">Disease-wise Sales Distribution</h2>
+                <canvas id="diseaseSalesChart"></canvas>
             </div>
         </div>
 
@@ -367,46 +451,95 @@ $total_profit = $total_sales - $total_purchase;
 
     <!-- Initialize Charts -->
     <script>
-        // Monthly Sales Chart
+        // Monthly Sales Chart with enhanced styling
         const monthlySalesCtx = document.getElementById('monthlySalesChart').getContext('2d');
         new Chart(monthlySalesCtx, {
             type: 'line',
             data: {
                 labels: <?php echo json_encode(array_column($monthly_sales, 'month')); ?>,
                 datasets: [{
-                    label: 'Monthly Sales',
+                    label: 'Revenue',
                     data: <?php echo json_encode(array_column($monthly_sales, 'total_revenue')); ?>,
                     borderColor: 'rgb(59, 130, 246)',
-                    tension: 0.1
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    yAxisID: 'y'
+                }, {
+                    label: 'Number of Bills',
+                    data: <?php echo json_encode(array_column($monthly_sales, 'total_bills')); ?>,
+                    borderColor: 'rgb(234, 88, 12)',
+                    backgroundColor: 'rgba(234, 88, 12, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    yAxisID: 'y1'
                 }]
             },
             options: {
                 responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
                 plugins: {
                     legend: {
                         position: 'top',
                     },
                     title: {
                         display: true,
-                        text: 'Monthly Sales Trend'
+                        text: 'Monthly Sales Performance'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.datasetIndex === 0) {
+                                    label += '₹' + context.parsed.y.toLocaleString();
+                                } else {
+                                    label += context.parsed.y.toLocaleString() + ' bills';
+                                }
+                                return label;
+                            }
+                        }
                     }
                 },
                 scales: {
                     y: {
-                        beginAtZero: true,
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Revenue (₹)'
+                        },
                         ticks: {
                             callback: function(value) {
                                 return '₹' + value.toLocaleString();
                             }
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Number of Bills'
+                        },
+                        grid: {
+                            drawOnChartArea: false
                         }
                     }
                 }
             }
         });
 
-        // Category Sales Chart
-        const categorySalesCtx = document.getElementById('categorySalesChart').getContext('2d');
-        const categoryData = {
+        // Disease Sales Chart with enhanced styling
+        const diseaseSalesCtx = document.getElementById('diseaseSalesChart').getContext('2d');
+        const diseaseData = {
             labels: [],
             datasets: [{
                 data: [],
@@ -415,32 +548,66 @@ $total_profit = $total_sales - $total_purchase;
                     'rgba(54, 162, 235, 0.8)',
                     'rgba(255, 206, 86, 0.8)',
                     'rgba(75, 192, 192, 0.8)',
-                    'rgba(153, 102, 255, 0.8)'
-                ]
+                    'rgba(153, 102, 255, 0.8)',
+                    'rgba(255, 159, 64, 0.8)',
+                    'rgba(199, 199, 199, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(255, 99, 132, 1)',
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(255, 206, 86, 1)',
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(153, 102, 255, 1)',
+                    'rgba(255, 159, 64, 1)',
+                    'rgba(199, 199, 199, 1)'
+                ],
+                borderWidth: 1
             }]
         };
 
         <?php
-        while ($category = $category_sales->fetch_assoc()) {
-            echo "categoryData.labels.push('" . $category['category'] . "');\n";
-            echo "categoryData.datasets[0].data.push(" . $category['total_revenue'] . ");\n";
+        while ($disease = $disease_sales->fetch_assoc()) {
+            echo "diseaseData.labels.push('" . $disease['disease_name'] . "');\n";
+            echo "diseaseData.datasets[0].data.push(" . $disease['total_revenue'] . ");\n";
         }
         ?>
 
-        new Chart(categorySalesCtx, {
+        new Chart(diseaseSalesCtx, {
             type: 'doughnut',
-            data: categoryData,
+            data: diseaseData,
             options: {
                 responsive: true,
                 plugins: {
                     legend: {
                         position: 'right',
+                        labels: {
+                            padding: 20,
+                            font: {
+                                size: 12
+                            }
+                        }
                     },
                     title: {
                         display: true,
-                        text: 'Category-wise Sales Distribution'
+                        text: 'Disease-wise Sales Distribution',
+                        font: {
+                            size: 16
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                let value = context.parsed || 0;
+                                let total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                let percentage = ((value * 100) / total).toFixed(1);
+                                return `${label}: ₹${value.toLocaleString()} (${percentage}%)`;
+                            }
+                        }
                     }
-                }
+                },
+                cutout: '60%',
+                radius: '90%'
             }
         });
     </script>

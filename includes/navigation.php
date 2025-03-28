@@ -75,7 +75,7 @@ $notifications = $db->query($notifications_query);
                 </a>
 
                 <!-- Notifications Button -->
-                <div class="relative" x-data="{ open: false }">
+                <div class="relative" x-data="{ open: false }" x-cloak>
                     <button @click="open = !open" class="px-4 py-2 rounded-lg hover:bg-blue-500 transition-all duration-200 flex items-center space-x-2">
                         <div class="relative">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -162,8 +162,9 @@ $notifications = $db->query($notifications_query);
     </div>
 </nav>
 
-<!-- AlpineJS for dropdown functionality -->
-<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<!-- AlpineJS styles and script -->
+<style>[x-cloak] { display: none !important; }</style>
+<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 
 <!-- Mobile Menu Toggle Script -->
 <script>

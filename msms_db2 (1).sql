@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Feb 17, 2025 at 04:21 PM
+-- Generation Time: Mar 28, 2025 at 10:24 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `msms_db3`
+-- Database: `msms_db2`
 --
 
 -- --------------------------------------------------------
@@ -60,7 +60,12 @@ CREATE TABLE `bills` (
 
 INSERT INTO `bills` (`id`, `total_amount`, `bill_date`, `customer_name`) VALUES
 (5, 150.00, '2025-02-10', 'Rajesh'),
-(6, 300.00, '2025-02-15', 'Rajesh');
+(6, 300.00, '2025-02-15', 'Rajesh'),
+(7, 2000.00, '2025-02-19', 'Rajanna (Rajesh) Adeli'),
+(8, 100.00, '2025-02-19', 'Rajesh'),
+(9, 500.00, '2025-03-27', 'Ramesh'),
+(10, 4000.00, '2025-03-28', 'Rahul'),
+(11, 3000.00, '2025-03-28', 'Hashira');
 
 -- --------------------------------------------------------
 
@@ -73,6 +78,16 @@ CREATE TABLE `bill_sales` (
   `bill_id` int(11) DEFAULT NULL,
   `sale_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `bill_sales`
+--
+
+INSERT INTO `bill_sales` (`id`, `bill_id`, `sale_id`) VALUES
+(13, 8, 13),
+(14, 9, 14),
+(15, 10, 15),
+(16, 11, 16);
 
 -- --------------------------------------------------------
 
@@ -149,8 +164,9 @@ CREATE TABLE `medicines` (
 --
 
 INSERT INTO `medicines` (`id`, `name`, `use`, `selling_price`, `available_quantity`, `expiry_date`, `company_id`, `disease_id`) VALUES
-(10, 'Metformin', '', 10.00, 0, NULL, 5, 6),
-(11, 'Lisinopril', '', 10.00, 100, '0000-00-00', 4, 5);
+(12, 'Metformin', '', 10.00, 40, '2025-06-04', 6, 10),
+(13, 'New Medicine', '', 300.00, 70, '2025-03-28', 6, 6),
+(14, 'naya', '', 10.00, 100, '2025-03-26', 4, 7);
 
 -- --------------------------------------------------------
 
@@ -161,13 +177,21 @@ INSERT INTO `medicines` (`id`, `name`, `use`, `selling_price`, `available_quanti
 CREATE TABLE `notifications` (
   `id` int(11) NOT NULL,
   `medicine_id` int(11) DEFAULT NULL,
+  `expiry_date` date DEFAULT NULL,
   `message` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `status` enum('unread','read') DEFAULT 'unread',
   `notification_type` enum('warning','expired') NOT NULL,
-  `notified_until` date DEFAULT NULL,
-  FOREIGN KEY (medicine_id) REFERENCES medicines(id) ON DELETE CASCADE
+  `notified_until` date DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `notifications`
+--
+
+INSERT INTO `notifications` (`id`, `medicine_id`, `expiry_date`, `message`, `created_at`, `status`, `notification_type`, `notified_until`) VALUES
+(1, 14, NULL, 'EXPIRED: Medicine \'naya\' has expired on 2025-03-26. Remove from inventory immediately!', '2025-03-28 08:37:07', 'read', 'expired', '2025-03-26'),
+(4, 14, '2025-03-26', 'EXPIRED: Medicine \'naya\' has expired on 2025-03-26. Remove from inventory immediately!', '2025-03-28 08:50:24', 'read', 'expired', '2025-03-26');
 
 -- --------------------------------------------------------
 
@@ -190,7 +214,9 @@ CREATE TABLE `purchases` (
 --
 
 INSERT INTO `purchases` (`id`, `medicine_id`, `quantity`, `purchase_price`, `purchase_date`, `expiry_date`, `total_cost`) VALUES
-(20, 11, 100, 8.00, '2025-02-16', '2025-05-09', 800.00);
+(22, 12, 100, 8.00, '2025-02-19', '2025-06-04', 800.00),
+(23, 13, 100, 200.00, '2025-03-27', '2025-03-28', 20000.00),
+(24, 14, 100, 7.00, '2025-03-27', '2025-03-26', 700.00);
 
 -- --------------------------------------------------------
 
@@ -205,6 +231,16 @@ CREATE TABLE `sales` (
   `sale_price` decimal(10,2) NOT NULL,
   `sale_date` date NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `sales`
+--
+
+INSERT INTO `sales` (`id`, `medicine_id`, `quantity_sold`, `sale_price`, `sale_date`) VALUES
+(13, 12, 10, 10.00, '2025-02-19'),
+(14, 12, 50, 10.00, '2025-03-27'),
+(15, 13, 20, 200.00, '2025-03-28'),
+(16, 13, 10, 300.00, '2025-03-28');
 
 --
 -- Indexes for dumped tables
@@ -258,7 +294,7 @@ ALTER TABLE `medicines`
 --
 ALTER TABLE `notifications`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `medicine_id` (`medicine_id`,`notified_until`);
+  ADD UNIQUE KEY `unique_notification` (`medicine_id`,`notification_type`,`expiry_date`);
 
 --
 -- Indexes for table `purchases`
@@ -288,13 +324,13 @@ ALTER TABLE `admin_users`
 -- AUTO_INCREMENT for table `bills`
 --
 ALTER TABLE `bills`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT for table `bill_sales`
 --
 ALTER TABLE `bill_sales`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `companies`
@@ -305,4 +341,71 @@ ALTER TABLE `companies`
 --
 -- AUTO_INCREMENT for table `diseases`
 --
-ALTER TABLE `
+ALTER TABLE `diseases`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+
+--
+-- AUTO_INCREMENT for table `medicines`
+--
+ALTER TABLE `medicines`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+
+--
+-- AUTO_INCREMENT for table `notifications`
+--
+ALTER TABLE `notifications`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+
+--
+-- AUTO_INCREMENT for table `purchases`
+--
+ALTER TABLE `purchases`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
+
+--
+-- AUTO_INCREMENT for table `sales`
+--
+ALTER TABLE `sales`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+
+--
+-- Constraints for dumped tables
+--
+
+--
+-- Constraints for table `bill_sales`
+--
+ALTER TABLE `bill_sales`
+  ADD CONSTRAINT `bill_sales_ibfk_1` FOREIGN KEY (`bill_id`) REFERENCES `bills` (`id`),
+  ADD CONSTRAINT `bill_sales_ibfk_2` FOREIGN KEY (`sale_id`) REFERENCES `sales` (`id`);
+
+--
+-- Constraints for table `medicines`
+--
+ALTER TABLE `medicines`
+  ADD CONSTRAINT `medicines_ibfk_1` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`),
+  ADD CONSTRAINT `medicines_ibfk_2` FOREIGN KEY (`disease_id`) REFERENCES `diseases` (`id`);
+
+--
+-- Constraints for table `notifications`
+--
+ALTER TABLE `notifications`
+  ADD CONSTRAINT `notifications_ibfk_1` FOREIGN KEY (`medicine_id`) REFERENCES `medicines` (`id`);
+
+--
+-- Constraints for table `purchases`
+--
+ALTER TABLE `purchases`
+  ADD CONSTRAINT `purchases_ibfk_1` FOREIGN KEY (`medicine_id`) REFERENCES `medicines` (`id`);
+
+--
+-- Constraints for table `sales`
+--
+ALTER TABLE `sales`
+  ADD CONSTRAINT `fk_medicine_id` FOREIGN KEY (`medicine_id`) REFERENCES `medicines` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `sales_ibfk_1` FOREIGN KEY (`medicine_id`) REFERENCES `medicines` (`id`);
+COMMIT;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
